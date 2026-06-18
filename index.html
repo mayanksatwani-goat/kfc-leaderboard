@@ -276,13 +276,12 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
             <tr>
               <th>Rank</th>
               <th style="text-align:left">Player</th>
-              <th>#</th>
               <th class="hide-md">MP</th>
               <th>Goals</th>
-              <th>Assists</th>
+              <th class="hide-sm">Assists</th>
               <th>G+A</th>
-              <th class="hide-sm">🧤 Saves</th>
-              <th class="hide-sm">🛡️ Tackles</th>
+              <th>🧤 Saves</th>
+              <th>🛡️ Tackles</th>
               <th>MOTM</th>
             </tr>
           </thead>
@@ -631,7 +630,7 @@ async function loadLB(){
 }
 function renderLB(data){
   const tbody=document.getElementById('lbBody');
-  if(!data||data.length===0){tbody.innerHTML=`<tr><td colspan="10">${emptyHtml('🏆','No stats yet','Be the first to submit match stats!')}</td></tr>`;return;}
+  if(!data||data.length===0){tbody.innerHTML=`<tr><td colspan="9">${emptyHtml('🏆','No stats yet','Be the first to submit match stats!')}</td></tr>`;return;}
   tbody.innerHTML=data.map((p,i)=>{
     const r=i+1;
     const rc=r===1?'row-r1':r===2?'row-r2':r===3?'row-r3':'';
@@ -642,10 +641,10 @@ function renderLB(data){
       <td><div class="pname">${esc(p.display_name)}</div><div class="pnum">#${p.player_number}</div></td>
       <td class="hide-md"><span class="stat-n">${p.matches_played}</span></td>
       <td><span class="stat-n">${p.total_goals}</span></td>
-      <td><span class="stat-n">${p.total_assists}</span></td>
+      <td class="hide-sm"><span class="stat-n">${p.total_assists}</span></td>
       <td><span class="ga-n">${p.total_ga}</span></td>
-      <td class="hide-sm">${p.total_saves>0?`<span class="save-tag">🧤 ${p.total_saves}</span>`:`<span style="color:var(--t3)">—</span>`}</td>
-      <td class="hide-sm">${p.total_tackles>0?`<span class="tck-tag">🛡️ ${p.total_tackles}</span>`:`<span style="color:var(--t3)">—</span>`}</td>
+      <td>${p.total_saves>0?`<span class="save-tag">🧤 ${p.total_saves}</span>`:`<span style="color:var(--t3)">—</span>`}</td>
+      <td>${p.total_tackles>0?`<span class="tck-tag">🛡️ ${p.total_tackles}</span>`:`<span style="color:var(--t3)">—</span>`}</td>
       <td>${p.total_motm>0?`<span class="motm-tag">⭐ ${p.total_motm}</span>`:`<span style="color:var(--t3)">—</span>`}</td>
     </tr>`;
   }).join('');
