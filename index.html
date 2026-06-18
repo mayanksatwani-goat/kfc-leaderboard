@@ -690,8 +690,8 @@ async function loadMonthly(){
   const map={};
   data.forEach(s=>{if(!s.profiles)return;if(!map[s.user_id])map[s.user_id]={name:s.profiles.display_name,goals:0,assists:0,saves:0,tackles:0,motm:0};map[s.user_id].goals+=s.goals;map[s.user_id].assists+=s.assists;map[s.user_id].saves+=s.saves||0;map[s.user_id].tackles+=s.tackles||0;if(s.motm)map[s.user_id].motm++;});
   const pl=Object.values(map);
-  const byStat=(k)=>[...pl].sort((a,b)=>b[k]-a[k])[0];
-  const topSc=byStat('goals'),topAs=byStat('assists'),topSv=byStat('saves'),topTk=byStat('tackles'),topMo=[...pl].sort((a,b)=>b.motm-a.motm).filter(p=>p.motm>0)[0];
+  const byStat=(k)=>[...pl].sort((a,b)=>b[k]-a[k]).filter(p=>p[k]>0)[0];
+  const topSc=byStat('goals'),topAs=byStat('assists'),topSv=byStat('saves'),topTk=byStat('tackles'),topMo=byStat('motm');
   pod.innerHTML=`
     ${podCard('⚽','Top Scorer','goals',topSc,mLabel)}
     ${podCard('🎯','Top Assister','assists',topAs,mLabel)}
@@ -903,9 +903,17 @@ function setupRT(){
       }
       if(curTab==='adm'&&curAdmTab==='q')loadQueue();
     })
-    .on('postgres_changes',{event:'*',schema:'public',table:'stat_overrides'},()=>{loadLB();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'stat_overrides'},()=>{
+      loadLB();
+      if(['sc','as','sv','tk','mo'].includes(curTab))loadTopLists();
+    })
     .subscribe();
-  setInterval(()=>{loadLB();if(curTab==='adm'&&currentProfile?.role==='admin')loadQueue();},30000);
+  setInterval(()=>{
+    loadLB();
+    if(['sc','as','sv','tk','mo'].includes(curTab))loadTopLists();
+    if(curTab==='mn')loadMonthly();
+    if(curTab==='adm'&&currentProfile?.role==='admin')loadQueue();
+  },30000);
 }
 
 // ── UTILS ─────────────────────────────────────────────────────
