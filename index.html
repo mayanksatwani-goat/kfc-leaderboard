@@ -683,13 +683,35 @@ async function loadMonthly(){
   const month=document.getElementById('monthSel').value,[yr,mo]=month.split('-');
   const start=`${yr}-${mo}-01`,last=new Date(parseInt(yr),parseInt(mo),0).getDate(),end=`${yr}-${mo}-${String(last).padStart(2,'0')}`;
   document.getElementById('podium').innerHTML=`<div class="loading" style="grid-column:1/-1"><div class="spin"></div>Loading…</div>`;
-  const{data}=await sb.from('match_stats').select('*,profiles(display_name,player_number)').eq('status','approved').gte('date',start).lte('date',end);
+  // Fetch match entries AND overrides in parallel
+  const[{data},{data:ovData},{data:profData}]=await Promise.all([
+    sb.from('match_stats').select('*,profiles(display_name,player_number)').eq('status','approved').gte('date',start).lte('date',end),
+    sb.from('stat_overrides').select('*'),
+    sb.from('profiles').select('id,display_name,player_number').eq('role','player')
+  ]);
   const pod=document.getElementById('podium');
   const mLabel=new Date(parseInt(yr),parseInt(mo)-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
-  if(!data||data.length===0){pod.innerHTML=`<div style="grid-column:1/-1">${emptyHtml('📅','No stats for this month','')}</div>`;return;}
+  // Build override map keyed by user_id
+  const ovMap={};
+  (ovData||[]).forEach(o=>ovMap[o.user_id]=o);
+  // Build profile map for players who may have only overrides (no match entries this month)
+  const profMap={};
+  (profData||[]).forEach(p=>profMap[p.id]={name:p.display_name,num:p.player_number});
   const map={};
-  data.forEach(s=>{if(!s.profiles)return;if(!map[s.user_id])map[s.user_id]={name:s.profiles.display_name,goals:0,assists:0,saves:0,tackles:0,motm:0};map[s.user_id].goals+=s.goals;map[s.user_id].assists+=s.assists;map[s.user_id].saves+=s.saves||0;map[s.user_id].tackles+=s.tackles||0;if(s.motm)map[s.user_id].motm++;});
-  const pl=Object.values(map);
+  // Aggregate match entries
+  (data||[]).forEach(s=>{if(!s.profiles)return;if(!map[s.user_id])map[s.user_id]={name:s.profiles.display_name,goals:0,assists:0,saves:0,tackles:0,motm:0};map[s.user_id].goals+=s.goals;map[s.user_id].assists+=s.assists;map[s.user_id].saves+=s.saves||0;map[s.user_id].tackles+=s.tackles||0;if(s.motm)map[s.user_id].motm++;});
+  // Merge overrides on top — if player has no match entries this month, seed from profMap
+  (ovData||[]).forEach(o=>{
+    if(!profMap[o.user_id])return;
+    if(!map[o.user_id])map[o.user_id]={name:profMap[o.user_id].name,goals:0,assists:0,saves:0,tackles:0,motm:0};
+    map[o.user_id].goals  +=o.goals_adj||0;
+    map[o.user_id].assists+=o.assists_adj||0;
+    map[o.user_id].saves  +=o.saves_adj||0;
+    map[o.user_id].tackles+=o.tackles_adj||0;
+    map[o.user_id].motm   +=o.motm_adj||0;
+  });
+  if(!data?.length&&!ovData?.length){pod.innerHTML=`<div style="grid-column:1/-1">${emptyHtml('📅','No stats for this month','')}</div>`;return;}
+  const pl=Object.values(map).filter(p=>p.goals||p.assists||p.saves||p.tackles||p.motm);
   const byStat=(k)=>[...pl].sort((a,b)=>b[k]-a[k]).filter(p=>p[k]>0)[0];
   const topSc=byStat('goals'),topAs=byStat('assists'),topSv=byStat('saves'),topTk=byStat('tackles'),topMo=byStat('motm');
   pod.innerHTML=`
@@ -906,6 +928,7 @@ function setupRT(){
     .on('postgres_changes',{event:'*',schema:'public',table:'stat_overrides'},()=>{
       loadLB();
       if(['sc','as','sv','tk','mo'].includes(curTab))loadTopLists();
+      if(curTab==='mn')loadMonthly();
     })
     .subscribe();
   setInterval(()=>{
