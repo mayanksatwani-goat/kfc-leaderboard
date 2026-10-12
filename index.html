@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KFC Live Leaderboard</title>
+<title>Turf Republic Leaderboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -237,9 +237,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 <nav class="nav">
   <div class="nav-inner">
     <div class="logo-wrap">
-      <div class="logo-fb" id="logoFb">KFC</div>
-      <img id="logoImg" src="logo.png" alt="KFC" onload="this.classList.add('show');document.getElementById('logoFb').style.display='none'">
-      <div class="brand">KFC <span>Leaderboard</span></div>
+      <div class="logo-fb" id="logoFb">TR</div>
+      <img id="logoImg" src="logo.png" alt="Turf Republic" onload="this.classList.add('show');document.getElementById('logoFb').style.display='none'">
+      <div class="brand">Turf Republic <span>Leaderboard</span></div>
     </div>
     <div class="nav-right" id="navRight">
       <div class="live-pill"><div class="live-dot"></div>LIVE</div>
@@ -464,7 +464,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 <!-- AUTH MODAL -->
 <div class="overlay" id="authOverlay" style="display:none" onclick="if(event.target===this)closeModal()">
   <div class="modal">
-    <div class="modal-title">KFC Leaderboard</div>
+    <div class="modal-title">Turf Republic Leaderboard</div>
     <div class="modal-sub">Sign in to submit your match stats</div>
     <div class="auth-toggle">
       <button class="auth-toggle-btn active" id="atbLogin" onclick="switchAuth('login')">Log In</button>
@@ -472,7 +472,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     </div>
     <div id="loginForm">
       <div id="loginErr" class="err-banner" style="display:none"></div>
-      <div class="fg"><label class="fl">Email or Username</label><input class="fi" id="liEmail" type="text" placeholder="your@email.com or ms7goat" autocomplete="email"></div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="liEmail" type="email" placeholder="your@email.com" autocomplete="email"></div>
       <div class="fg"><label class="fl">Password</label><input class="fi" id="liPw" type="password" placeholder="••••••••" autocomplete="current-password"></div>
       <div class="check-row"><input type="checkbox" class="chk" id="remMe" checked><label for="remMe" class="chk-lbl">Remember me on this device</label></div>
       <button class="btn btn-primary w-full" onclick="doLogin()">Log In</button>
@@ -528,7 +528,7 @@ let rtChannel=null;
 })();
 
 async function loadProfile(){
-  const{data}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+  const{data}=await sb.from('profiles').select('id,username,display_name,player_number,role').eq('id',currentUser.id).single();
   if(data){currentProfile=data;if(data.role==='admin')document.getElementById('adminTabBtn').style.display='inline-flex';if(data.role==='player'){showPA();loadMyStats();}}
 }
 function showPA(){document.getElementById('playerArea').style.display='block';}
@@ -594,15 +594,11 @@ async function doLogin(){
   const raw=document.getElementById('liEmail').value.trim();
   const pw=document.getElementById('liPw').value;
   const err=document.getElementById('loginErr');
-  if(!raw||!pw){showErr(err,'Please enter your email/username and password.');return;}
-  let email=raw;
-  if(!raw.includes('@')){
-    const{data}=await sb.rpc('get_email_by_username',{p_username:raw});
-    if(!data){showErr(err,'Username not found. Try logging in with your email address.');return;}
-    email=data;
-  }
+  if(!raw||!pw){showErr(err,'Please enter your email and password.');return;}
+  if(!raw.includes('@')){showErr(err,'Log in with the email address on your account.');return;}
+  const email=raw;
   const{error}=await sb.auth.signInWithPassword({email,password:pw});
-  if(error){showErr(err,error.message.toLowerCase().includes('invalid')||error.message.toLowerCase().includes('credential')?'Incorrect email/username or password.':error.message);return;}
+  if(error){showErr(err,error.message.toLowerCase().includes('invalid')||error.message.toLowerCase().includes('credential')?'Incorrect email or password.':error.message);return;}
   closeModal();toast('Welcome back! 👋','success');
 }
 async function doSignup(){
@@ -616,7 +612,7 @@ async function doSignup(){
   if(pw.length<6){showErr(err,'Password must be at least 6 characters.');return;}
   const{error}=await sb.auth.signUp({email,password:pw,options:{data:{display_name:name}}});
   if(error){showErr(err,error.message.toLowerCase().includes('already')?'This email is already registered. Switch to "Log In".':error.message);return;}
-  closeModal();toast('Account created! Welcome to KFC Leaderboard 🎉','success');
+  closeModal();toast('Account created! Welcome to the Turf Republic Leaderboard 🎉','success');
 }
 async function doLogout(){await sb.auth.signOut();closeDD();toast('Signed out.','info');}
 
@@ -826,7 +822,7 @@ async function saveOverride(uid){
 async function loadAdminPlayers(){
   const[{data:lb},{data:pr}]=await Promise.all([
     sb.from('leaderboard_view').select('*').order('player_number',{ascending:true}),
-    sb.from('profiles').select('id,email').eq('role','player')
+    sb.rpc('admin_player_emails')
   ]);
   const eMap={};(pr||[]).forEach(p=>eMap[p.id]=p.email);
   const tbody=document.getElementById('pTableBody');
